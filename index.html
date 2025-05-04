@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HS Weather App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Apply Inter font globally */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Simple transition for weather card appearance */
+        #weather-result {
+            transition: opacity 0.5s ease-in-out;
+        }
+        /* Style for loading spinner */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 w-full max-w-md text-center">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Hoya Saxa Weather Finder</h1>
+
+        <form id="weather-form" class="mb-6">
+            <label for="location-input" class="sr-only">Zip Code (e.g., 90210)</label>
+            <input
+                type="text"
+                id="location-input"
+                placeholder="Enter US Zip Code (e.g., 90210)" required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out mb-4"
+            >
+            <button
+                type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+                Get Weather
+            </button>
+        </form>
+
+        <div id="loading" class="hidden">
+             <div class="loader"></div>
+             <p class="text-gray-600">Fetching weather...</p>
+        </div>
+
+        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
+            <strong class="font-bold">Error:</strong>
+            <span class="block sm:inline" id="error-text">Something went wrong.</span>
+        </div>
+
+        <div id="weather-result" class="opacity-0 hidden mt-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+            <h2 id="city-name" class="text-xl md:text-2xl font-semibold text-gray-700 mb-2"></h2>
+            <div class="flex items-center justify-center mb-4">
+                <img
+                    id="weather-icon"
+                    src="https://placehold.co/100x100/e2e8f0/a0aec0?text=Icon"
+                    alt="Weather icon"
+                    class="w-16 h-16 md:w-20 md:h-20 mr-4"
+                    onerror="this.onerror=null; this.src='https://placehold.co/100x100/e2e8f0/a0aec0?text=Icon';"
+                >
+                <p id="temperature" class="text-3xl md:text-4xl font-bold text-gray-800"></p>
+            </div>
+            <p id="description" class="text-lg text-gray-600 capitalize mb-4"></p>
+            <div class="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                <div class="text-left">
+                    <p><strong>Feels like:</strong> <span id="feels-like">--</span></p>
+                    <p><strong>Humidity:</strong> <span id="humidity">--</span>%</p>
+                </div>
+                <div class="text-left">
+                    <p><strong>Wind:</strong> <span id="wind-speed">--</span> m/s</p>
+                    <p><strong>Pressure:</strong> <span id="pressure">--</span> hPa</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const weatherForm = document.getElementById('weather-form');
+        // Renamed input ID for clarity
+        const locationInput = document.getElementById('location-input');
+        const weatherResultDiv = document.getElementById('weather-result');
+        const loadingDiv = document.getElementById('loading');
+        const errorMessageDiv = document.getElementById('error-message');
+        const errorTextSpan = document.getElementById('error-text');
+
+        const API_KEY_STORAGE_KEY = 'openweathermap_api_key';
+
+        // --- API Key Handling ---
+        function getApiKey() {
+            let apiKey = sessionStorage.getItem(API_KEY_STORAGE_KEY);
+            if (!apiKey) {
+                apiKey = prompt("Please enter your OpenWeatherMap API key:");
+                if (apiKey && apiKey.trim() !== '') { // Check if key is not empty
+                    sessionStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+                } else {
+                    // Handle case where user cancels or enters nothing
+                    displayError("API Key is required to fetch weather data.");
+                    return null; // Indicate that the key is missing
+                }
+            }
+            return apiKey;
+        }
+
+        // --- Display Functions ---
+        function displayLoading(show) {
+            if (show) {
+                loadingDiv.classList.remove('hidden');
+                weatherResultDiv.classList.add('hidden', 'opacity-0'); // Hide results while loading
+                errorMessageDiv.classList.add('hidden'); // Hide errors while loading
+            } else {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        function displayError(message) {
+            errorTextSpan.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+            weatherResultDiv.classList.add('hidden', 'opacity-0'); // Hide results on error
+            displayLoading(false); // Ensure loading is hidden
+        }
+
+        function displayWeather(data) {
+            // Clear previous errors
+            errorMessageDiv.classList.add('hidden');
+
+            // Check if essential data is present
+            if (!data || !data.name || !data.main || !data.weather || !data.weather[0]) {
+                 displayError("Received incomplete weather data from the API.");
+                 return;
+            }
+
+            // Update DOM elements with weather data
+            document.getElementById('city-name').textContent = data.name || 'Unknown Location'; // API still returns city name
+            document.getElementById('temperature').textContent = `${Math.round(data.main.temp ?? 0)}°C`;
+            document.getElementById('description').textContent = data.weather[0].description || 'No description';
+
+            // Update weather icon
+            const iconCode = data.weather[0].icon;
+            const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+            const weatherIcon = document.getElementById('weather-icon');
+            weatherIcon.src = iconCode ? iconUrl : 'https://placehold.co/100x100/e2e8f0/a0aec0?text=Icon'; // Fallback if no icon code
+            weatherIcon.alt = data.weather[0].description || 'Weather icon';
+
+            // Update additional details
+            document.getElementById('feels-like').textContent = `${Math.round(data.main.feels_like ?? 0)}°C`;
+            document.getElementById('humidity').textContent = `${data.main.humidity ?? 0}`;
+            document.getElementById('wind-speed').textContent = `${data.wind?.speed ?? 0}`;
+            document.getElementById('pressure').textContent = `${data.main.pressure ?? 0}`;
+
+
+            // Show the weather result card with a fade-in effect
+            weatherResultDiv.classList.remove('hidden');
+            // Use a tiny timeout to allow the 'hidden' class removal to register before changing opacity
+            setTimeout(() => {
+                 weatherResultDiv.classList.remove('opacity-0');
+            }, 10);
+        }
+
+        // --- API Fetching ---
+        // Updated function to handle zip code
+        async function fetchWeatherByZip(zipCode, apiKey, countryCode = 'US') { // Default country to US
+            displayLoading(true);
+            // Construct API URL for zip code search
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?zip=${encodeURIComponent(zipCode)},${encodeURIComponent(countryCode)}&appid=${apiKey}&units=metric`;
+
+            try {
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) {
+                    // Handle HTTP errors (like 404 Not Found, 401 Unauthorized)
+                    const errorData = await response.json(); // Try to get error details from API
+                    // Provide more specific error for zip codes
+                    let errorMessage = errorData.message || `HTTP error! Status: ${response.status}`;
+                    if (response.status === 404) {
+                        errorMessage = `Could not find weather for zip code ${zipCode}, ${countryCode}. Please check the zip code and ensure it's valid for the US.`;
+                    } else if (response.status === 401) {
+                         errorMessage = `Invalid API Key. Please check your key. (${errorData.message || ''})`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+                displayWeather(data); // Use the same display function
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+                // Display the potentially more specific error message
+                displayError(error.message || "Could not fetch weather data.");
+            } finally {
+                // Always hide loading indicator when done
+                displayLoading(false);
+            }
+        }
+
+        // --- Event Listener ---
+        weatherForm.addEventListener('submit', (event) => {
+            event.preventDefault(); // Prevent default form submission
+            const location = locationInput.value.trim();
+            const apiKey = getApiKey(); // Get API key (prompts if needed)
+
+            // Basic validation for US zip code format (5 digits)
+            const zipCodePattern = /^\d{5}$/;
+
+            if (!location) {
+                 displayError("Please enter a US zip code.");
+                 return;
+            }
+
+            if (!zipCodePattern.test(location)) {
+                displayError("Invalid US zip code format. Please enter 5 digits (e.g., 90210).");
+                return;
+            }
+
+            if (apiKey) {
+                fetchWeatherByZip(location, apiKey); // Call the zip code fetch function
+            } else {
+                 // Error message already displayed by getApiKey if key is missing
+                 console.log("API Key missing or not provided.");
+            }
+        });
+            // Utilized Gemini to help debug and validate code
+    </script>
+
+</body>
+</html>

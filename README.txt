@@ -2,7 +2,7 @@
 
 A simple front-end web application that fetches and displays the current weather for a user-specified **US zip code** using the OpenWeatherMap API.
 
-**Live Demo:** [Link to your hosted application on GitHub Pages or other service] *(Replace this with your actual link after deployment)*
+Link to Application: https://tcav26.github.io/HS_Weather/
 
 ## Features
 
@@ -50,11 +50,9 @@ This application requires an API key from OpenWeatherMap to function.
 * `index.html`: Contains the HTML structure, CSS (within `<style>` tags and Tailwind classes), and JavaScript logic.
 * `README.md`: This file.
 
-## Contributions
+## Group Members
 
-*(Optional: Add names of contributors if this was a group project)*
-
-* [Your Name/Group Member Name 1]
-* [Group Member Name 2]
-* ...
+* Tim Cavanagh
+* TJ Hanzsche
+* Jacob Matthew
 

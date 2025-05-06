@@ -54,5 +54,5 @@ This application requires an API key from OpenWeatherMap to function.
 
 * Tim Cavanagh
 * TJ Hanzsche
-* Jacob Matthew
+* Jacob Mathew
 
